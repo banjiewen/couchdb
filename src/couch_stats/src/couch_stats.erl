@@ -17,9 +17,9 @@
     stop/0,
     fetch/0,
     reload/0,
-    sample/1,
+    sample/2,
     new/2,
-    delete/1,
+    delete/2,
     list/0,
     increment_counter/1,
     increment_counter/2,
@@ -44,52 +44,57 @@ fetch() ->
 reload() ->
     couch_stats_aggregator:reload().
 
--spec sample(any()) -> stat().
-sample(Name) ->
-    [{Name, Info}] = folsom_metrics:get_metric_info(Name),
-    sample_type(Name, proplists:get_value(type, Info)).
+-spec sample(any(), atom()) -> stat().
+sample(Name, counter) ->
+    moslof_counter:read(Name);
+sample(Name, gauge) ->
+    moslof_gauge:read(Name);
+sample(Name, histogram) ->
+    moslof_windowed_histogram:read(Name).
 
--spec new(atom(), any()) -> ok | {error, metric_exists | unsupported_type}.
+-spec new(atom(), any()) -> ok | {error, atom()}.
 new(counter, Name) ->
-    case folsom_metrics:new_counter(Name) of
-        ok -> ok;
-        {error, Name, metric_already_exists} -> {error, metric_exists}
-    end;
+    moslof_counter:new(Name);
+new(gauge, Name) ->
+    moslof_gauge:new(Name);
 new(histogram, Name) ->
     {ok, Time} = application:get_env(couch_stats, collection_interval),
-    case folsom_metrics:new_histogram(Name, slide_uniform, {Time, 1024}) of
-        ok -> ok;
-        {error, Name, metric_already_exists} -> {error, metric_exists}
-    end;
-new(gauge, Name) ->
-    case folsom_metrics:new_gauge(Name) of
-        ok -> ok;
-        {error, Name, metric_already_exists} -> {error, metric_exists}
-    end;
+    %% TODO: expose bounds and clean up
+    moslof_windowed_histogram:new(Name, Time * 1000, Time * 100, 1, 1000000, 3);
 new(_, _) ->
     {error, unsupported_type}.
 
-delete(Name) ->
-    folsom_metrics:delete_metric(Name).
+delete(Name, counter) ->
+    moslof_counter:delete(Name);
+delete(Name, gauge) ->
+    moslof_gauge:delete(Name);
+delete(Name, histogram) ->
+    moslof_windowed_histogram:delete(Name);
+delete(_, _) ->
+    {error, unsupported_type}.
 
 list() ->
-    folsom_metrics:get_metrics_info().
+    moslof_counter:list() ++ moslof_gauge:list() ++ moslof_windowed_histogram:list().
 
 -spec increment_counter(any()) -> response().
 increment_counter(Name) ->
-    notify_existing_metric(Name, {inc, 1}, counter).
+    moslof_counter:inc(Name).
 
 -spec increment_counter(any(), pos_integer()) -> response().
 increment_counter(Name, Value) ->
-    notify_existing_metric(Name, {inc, Value}, counter).
+    moslof_counter:inc(Name, Value).
 
 -spec decrement_counter(any()) -> response().
 decrement_counter(Name) ->
-    notify_existing_metric(Name, {dec, 1}, counter).
+    moslof_counter:dec(Name).
 
 -spec decrement_counter(any(), pos_integer()) -> response().
 decrement_counter(Name, Value) ->
-    notify_existing_metric(Name, {dec, Value}, counter).
+    moslof_counter:dec(Name, Value).
+
+-spec update_gauge(any(), number()) -> response().
+update_gauge(Name, Value) ->
+    moslof_gauge:update(Name, Value).
 
 -spec update_histogram(any(), number()) -> response();
                       (any(), function()) -> any().
@@ -97,30 +102,7 @@ update_histogram(Name, Fun) when is_function(Fun, 0) ->
     Begin = os:timestamp(),
     Result = Fun(),
     Duration = timer:now_diff(os:timestamp(), Begin) div 1000,
-    case notify_existing_metric(Name, Duration, histogram) of
-        ok ->
-            Result;
-        {error, unknown_metric} ->
-            throw({unknown_metric, Name})
-    end;
+    moslof_windowed_histogram:update(Name, Duration),
+    Result;
 update_histogram(Name, Value) when is_number(Value) ->
-    notify_existing_metric(Name, Value, histogram).
-
--spec update_gauge(any(), number()) -> response().
-update_gauge(Name, Value) ->
-    notify_existing_metric(Name, Value, gauge).
-
--spec notify_existing_metric(any(), any(), any()) -> response().
-notify_existing_metric(Name, Op, Type) ->
-    try
-        ok = folsom_metrics:notify_existing_metric(Name, Op, Type)
-    catch _:_ ->
-        couch_log:notice("unknown metric: ~p", [Name]),
-        {error, unknown_metric}
-    end.
-
--spec sample_type(any(), atom()) -> stat().
-sample_type(Name, histogram) ->
-    folsom_metrics:get_histogram_statistics(Name);
-sample_type(Name, _) ->
-    folsom_metrics:get_metric_value(Name).
+    moslof_windowed_histogram:update(Name, Value).

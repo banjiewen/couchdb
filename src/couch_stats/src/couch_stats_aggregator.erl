@@ -99,7 +99,7 @@ reload_metrics() ->
     ToDelete = sets:subtract(ExistingSet, CurrentSet),
     ToCreate = sets:subtract(CurrentSet, ExistingSet),
     sets:fold(
-        fun({Name, _}, _) -> couch_stats:delete(Name), nil end,
+        fun({Name, Type}, _) -> couch_stats:delete(Name, Type), nil end,
         nil,
         ToDelete
     ),
@@ -142,7 +142,8 @@ load_metrics_for_application(AppName) ->
 collect(State) ->
     Stats = lists:map(
         fun({Name, Props}) ->
-            {Name, [{value, couch_stats:sample(Name)}|Props]}
+            Type = proplists:get_value(type, Props),
+            {Name, [{value, couch_stats:sample(Name, Type)}|Props]}
         end,
         State#st.descriptions
     ),
