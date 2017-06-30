@@ -350,7 +350,7 @@ update_stats(HttpReq, #httpd_resp{end_ts = undefined} = Res) ->
     update_stats(HttpReq, Res#httpd_resp{end_ts = os:timestamp()});
 update_stats(#httpd{begin_ts = BeginTime}, #httpd_resp{} = Res) ->
     #httpd_resp{status = Status, end_ts = EndTime} = Res,
-    RequestTime = timer:now_diff(EndTime, BeginTime) / 1000,
+    RequestTime = timer:now_diff(EndTime, BeginTime) div 1000,
     couch_stats:update_histogram([couchdb, request_time], RequestTime),
     case Status of
         ok ->

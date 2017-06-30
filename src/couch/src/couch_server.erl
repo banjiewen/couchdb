@@ -336,7 +336,7 @@ handle_call(get_server, _From, Server) ->
     {reply, {ok, Server}, Server};
 handle_call({open_result, T0, DbName, {ok, Db}}, {FromPid, _Tag}, Server) ->
     true = ets:delete(couch_dbs_pid_to_name, FromPid),
-    OpenTime = timer:now_diff(os:timestamp(), T0) / 1000,
+    OpenTime = timer:now_diff(os:timestamp(), T0) div 1000,
     couch_stats:update_histogram([couchdb, db_open_time], OpenTime),
     % icky hack of field values - compactor_pid used to store clients
     % and fd used to possibly store a creation request

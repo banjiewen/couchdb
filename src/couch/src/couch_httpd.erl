@@ -368,7 +368,7 @@ handle_request_int(MochiReq, DefaultFun,
             couch_log:info("Stacktrace: ~p",[Stack]),
             send_error(HttpReq, Error)
     end,
-    RequestTime = round(timer:now_diff(os:timestamp(), Begin)/1000),
+    RequestTime = timer:now_diff(os:timestamp(), Begin) div 1000,
     couch_stats:update_histogram([couchdb, request_time], RequestTime),
     couch_stats:increment_counter([couchdb, httpd, requests]),
     {ok, Resp}.

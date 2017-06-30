@@ -93,7 +93,7 @@ handle_changes_req1(#httpd{}=Req, Db) ->
         {ok, Info} = fabric:get_db_info(Db),
         Suffix = mem3:shard_suffix(Db),
         Etag = chttpd:make_etag({Info, Suffix}),
-        DeltaT = timer:now_diff(os:timestamp(), T0) / 1000,
+        DeltaT = timer:now_diff(os:timestamp(), T0) div 1000,
         couch_stats:update_histogram([couchdb, dbinfo], DeltaT),
         chttpd:etag_respond(Req, Etag, fun() ->
             Acc0 = #cacc{
@@ -315,7 +315,7 @@ db_req(#httpd{method='GET',path_parts=[DbName]}=Req, _Db) ->
     % measure the time required to generate the etag, see if it's worth it
     T0 = os:timestamp(),
     {ok, DbInfo} = fabric:get_db_info(DbName),
-    DeltaT = timer:now_diff(os:timestamp(), T0) / 1000,
+    DeltaT = timer:now_diff(os:timestamp(), T0) div 1000,
     couch_stats:update_histogram([couchdb, dbinfo], DeltaT),
     send_json(Req, {DbInfo});
 
