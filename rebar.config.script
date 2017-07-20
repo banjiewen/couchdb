@@ -65,7 +65,7 @@ DepDescs = [
 {oauth,            "oauth",            "099057a98e41f3aff91e77e3cf496d6c6fd901df"},
 
 %% External
-{moslof, {url, "https://github.com/banjiewen/moslof.git"}, {tag, "0.0.3"}}
+{moslof, {url, "https://github.com/banjiewen/moslof.git"}, {tag, "0.0.4"}}
 ],
 
 
